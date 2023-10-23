@@ -5,16 +5,28 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
+
 # find dependencies
 find_package(ament_cmake REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(std_msgs REQUIRED)
+find_package(OpenCV REQUIRED )
+find_package(cv_bridge REQUIRED)
+find_package(Boost REQUIRED COMPONENTS thread)
+find_package(tutorial_interfaces REQUIRED)                     
+
+set(CARMELA_INC ${CMAKE_CURRENT_SOURCE_DIR}/include )
+
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../Lib/gStreamLib ${CMAKE_BINARY_DIR}/bin)
+
 
 add_executable(${PROJECT_NAME} src/publisher_member_function.cpp)
-ament_target_dependencies(${PROJECT_NAME} rclcpp std_msgs)
+target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS} Boost::thread gStreamLib)
+target_include_directories(${PROJECT_NAME} PRIVATE ${CARMELA_INC})
+ament_target_dependencies(${PROJECT_NAME} rclcpp std_msgs cv_bridge tutorial_interfaces)
 
 install(TARGETS ${PROJECT_NAME} DESTINATION lib/${PROJECT_NAME})
 

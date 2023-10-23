@@ -15,33 +15,60 @@
 #include <functional>
 #include <memory>
 
-#include "rclcpp/rclcpp.hpp"
-#include "std_msgs/msg/string.hpp"
+#include "subscriber_member_function.h"
+#include "gStreamLib.h"
 
 using std::placeholders::_1;
 
-class MinimalSubscriber : public rclcpp::Node
+MinimalSubscriber::MinimalSubscriber() : Node("minimal_subscriber")
 {
-public:
-  MinimalSubscriber()
-  : Node("minimal_subscriber")
-  {
-    subscription_ = this->create_subscription<std_msgs::msg::String>(
-      "topic", 10, std::bind(&MinimalSubscriber::topic_callback, this, _1));
-  }
+  rclcpp::QoS qos(rclcpp::KeepLast(0));                    // Keep the last 10 messages
+  qos.reliability(RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT); // Best-effort reliability
 
-private:
-  void topic_callback(const std_msgs::msg::String & msg) const
-  {
-    RCLCPP_INFO(this->get_logger(), "I heard: '%s'", msg.data.c_str());
-  }
-  rclcpp::Subscription<std_msgs::msg::String>::SharedPtr subscription_;
-};
+  this->subscription_ = this->create_subscription<tutorial_interfaces::msg::Num>(
+      "video", 10, std::bind(&MinimalSubscriber::topic_callback, this, _1));
+  isNewFrame = true;
+  curFrame = (uint8_t *)malloc(410880 * sizeof(uint8_t));
+  curFrameNumber = 0;
+}
 
-int main(int argc, char * argv[])
+void MinimalSubscriber::topic_callback(const tutorial_interfaces::msg::Num &msg)
+{
+  gStreamLib *p_gst = (gStreamLib *)p_gstClass;
+
+  // if (msg.pkt + msg.size > p_gst->calcFrameSize())
+  // {
+  //   std::cout << "Bigger" << std::endl;
+  // }
+  if (curFrame)
+    memcpy(curFrame + msg.pkt, msg.data.data(), msg.size);
+
+  if (msg.pkt + msg.size == p_gst->calcFrameSize())
+  {
+    std::cout << "Enter to Push frame" << std::endl;
+    p_gst->pushFrame(curFrame);
+    curFrame = (uint8_t *)malloc(p_gst->calcFrameSize() * sizeof(uint8_t));
+    p_gst->push_data_wrapper();
+    curFrameNumber = msg.frame;
+  }
+}
+
+int main(int argc, char *argv[])
 {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<MinimalSubscriber>());
+  auto node = std::make_shared<MinimalSubscriber>();
+
+  gStreamLib *hGst = new gStreamLib();
+  node.get()->p_gstClass = hGst;
+
+  boost::thread imagePlot = boost::thread(boost::bind(&gStreamLib::appsrcPipline, hGst));
+
+  std::cout << "got here" << std::flush;
+
+  rclcpp::spin(node);
   rclcpp::shutdown();
+  imagePlot.join();
+  delete hGst;
+
   return 0;
 }
