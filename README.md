@@ -8,19 +8,31 @@ in this Project there are two ros2 node video_sub and video_pub
 #### Install the Repo 
 1. clone the repo 
 2. enter to repo folder 
-3. run command : 
-4.  rosdep install -i --from-path src --rosdistro humble -y
-5.  colcon build
-6.  source ./install/setup.bash
+3. run commands :
+```
+rosdep install -i --from-path src --rosdistro humble -y
+colcon build
+source ./install/setup.bash
+``` 
 
 #### Run the example 
 1. connect USB camera to device ( currently the example works with live inputs )
-2. run the Publisher node : ros2 run video_pub video_pub 
-3. open new terminal and run the Subscriber node : ros2 run video_sub video_sub 
+2. run the Publisher node 
+```
+source ./install/setup.bash
+ros2 run video_pub video_pub
+```
+3. open new terminal and run the Subscriber node :
+```
+source ./install/setup.bash
+ros2 run video_sub video_sub 
+```
 
 
 ### System 
 
 OS : ubunru 22.04
 ROS relese : humble
+
+<img title="a title" alt="Alt text" src="./Image.png">
 
