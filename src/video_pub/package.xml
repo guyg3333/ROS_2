@@ -1,16 +1,15 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>carmela</name>
+  <name>video_pub</name>
   <version>0.0.0</version>
-  <description>Working with ROS</description>
+  <description>Video Publisher Node</description>
   <maintainer email="guyg3333@gmail.com">guy</maintainer>
   <license>MIT License</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
   <depend>rclcpp</depend>
   <depend>tutorial_interfaces</depend>
-  <depend>OpenCV</depend>
   <depend>Boost::thread</depend>
   
 
