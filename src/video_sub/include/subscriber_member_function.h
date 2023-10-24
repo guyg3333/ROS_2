@@ -9,9 +9,21 @@
 class MinimalSubscriber : public rclcpp::Node
 {
 public:
+
+    /**
+     * @brief Construct a new Minimal Subscriber object
+     * 
+     */
     MinimalSubscriber();
-    void* p_gstClass;
-    bool isNewFrame;
+
+    /**
+     * @brief 
+     * 
+     */
+    void initFrame();
+
+    void* p_gstClass;   /*<! Pointer to gStreamLib instance*/
+    bool isNewFrame;    /*<! flage for new frame */
     uint8_t* curFrame;
     uint64_t curIndex;
     uint64_t curFrameNumber;
@@ -19,6 +31,12 @@ public:
 
 
 private:
+
+    /**
+     * @brief topic_callback
+     * 
+     * @param msg 
+     */
     void topic_callback(const tutorial_interfaces::msg::Num &msg);
     rclcpp::Subscription<tutorial_interfaces::msg::Num>::SharedPtr subscription_;
 

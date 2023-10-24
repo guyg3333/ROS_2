@@ -13,7 +13,18 @@
 class MinimalPublisher : public rclcpp::Node
 {
     public:
+
+        /**
+         * @brief Construct a new Minimal Publisher object
+         * 
+         */
         MinimalPublisher();
+
+        /**
+         * @brief Set the wall timer object
+         * 
+         * @param dur 
+         */
         void set_wall_timer(int64_t dur);
 
         void* p_gstClass; /*<! pointer to Gstreamer class*/

@@ -22,51 +22,59 @@ using std::placeholders::_1;
 
 MinimalSubscriber::MinimalSubscriber() : Node("minimal_subscriber")
 {
-  rclcpp::QoS qos(rclcpp::KeepLast(0));                    // Keep the last 10 messages
-  qos.reliability(RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT); // Best-effort reliability
+  /* Set QoS */
+  rclcpp::QoS qos(rclcpp::KeepLast(10));                    
+  qos.reliability(RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT); 
 
+  /* Subsribe to video topic */
   this->subscription_ = this->create_subscription<tutorial_interfaces::msg::Num>(
       "video", 10, std::bind(&MinimalSubscriber::topic_callback, this, _1));
-  isNewFrame = true;
-  curFrame = (uint8_t *)malloc(410880 * sizeof(uint8_t));
   curFrameNumber = 0;
+
 }
+
+void MinimalSubscriber::initFrame()
+{
+  gStreamLib *p_gst = (gStreamLib *)p_gstClass;
+  curFrame = (uint8_t *)malloc(p_gst->calcFrameSize() * sizeof(uint8_t));
+}
+
+
 
 void MinimalSubscriber::topic_callback(const tutorial_interfaces::msg::Num &msg)
 {
   gStreamLib *p_gst = (gStreamLib *)p_gstClass;
 
-  // if (msg.pkt + msg.size > p_gst->calcFrameSize())
-  // {
-  //   std::cout << "Bigger" << std::endl;
-  // }
+  /* if  we process frame copy data from pkt to frame*/
   if (curFrame)
     memcpy(curFrame + msg.pkt, msg.data.data(), msg.size);
 
-  if (msg.pkt + msg.size == p_gst->calcFrameSize())
+  /* if we get all frame pkt then pass the frame to Pipline */
+  if (msg.pkt + msg.size == p_gst->calcFrameSize() || curFrameNumber != msg.frame )
   {
-    std::cout << "Enter to Push frame" << std::endl;
     p_gst->pushFrame(curFrame);
     curFrame = (uint8_t *)malloc(p_gst->calcFrameSize() * sizeof(uint8_t));
-    p_gst->push_data_wrapper();
     curFrameNumber = msg.frame;
+    p_gst->push_data_wrapper();
   }
 }
 
 int main(int argc, char *argv[])
 {
+  /* init Subsriber node  */
   rclcpp::init(argc, argv);
   auto node = std::make_shared<MinimalSubscriber>();
 
+  /* init Subsriber Pipline  */
   gStreamLib *hGst = new gStreamLib();
   node.get()->p_gstClass = hGst;
 
-  boost::thread imagePlot = boost::thread(boost::bind(&gStreamLib::appsrcPipline, hGst));
-
-  std::cout << "got here" << std::flush;
+  /* Start Pipline */
+  boost::thread imagePlot = boost::thread(boost::bind(&gStreamLib::SubPipline, hGst));
 
   rclcpp::spin(node);
   rclcpp::shutdown();
+  hGst->closePipline();
   imagePlot.join();
   delete hGst;
 
