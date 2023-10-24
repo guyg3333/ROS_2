@@ -9,7 +9,7 @@ int main(int argc, char *argv[])
     std::string input;
     g_print("start\n");
     gStreamLib* hGst = new gStreamLib();
-    boost::thread imageCapture = boost::thread(boost::bind(&gStreamLib::initPipline,hGst));
+    boost::thread imageCapture = boost::thread(boost::bind(&gStreamLib::PubPipline,hGst));
 
     //hGst->initPipline("cam",640,480);
     std::cout << "Thread waiting for user input: ";
