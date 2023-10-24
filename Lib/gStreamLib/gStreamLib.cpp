@@ -1,7 +1,7 @@
 #include <iostream>
 #include "gStreamLib.h"
 
-/* The appsink has received a buffer */
+/* a call back function, retreive data from Pipline to user queue - used in Publisher*/
 static GstFlowReturn new_sample(GstElement *sink, gpointer *data)
 {
     GstSample *sample;
@@ -11,21 +11,17 @@ static GstFlowReturn new_sample(GstElement *sink, gpointer *data)
     g_signal_emit_by_name(sink, "pull-sample", &sample);
     if (sample)
     {
-        /* The only thing we do in this example is print a * to indicate a received buffer */
-        g_print("*");
-        // g_print("size %ld", map.size);
-
         g_mutex_lock(&(p_gst->mutex));
         if (p_gst->frameQ.size() < 4)
         {
             GstBuffer *buffer = gst_sample_get_buffer(sample);
             GstMapInfo map;
             gst_buffer_map(buffer, &map, GST_MAP_READ);
-            // gst_buffer_ref(buffer)
+
             uint8_t *buff_cpy = (uint8_t *)malloc(map.size * sizeof(uint8_t));
             memcpy(buff_cpy, map.data, map.size);
             p_gst->frameQ.push(buff_cpy);
-            g_print("push");
+
             gst_buffer_unmap(buffer, &map);
         }
         g_mutex_unlock(&(p_gst->mutex));
@@ -37,107 +33,80 @@ static GstFlowReturn new_sample(GstElement *sink, gpointer *data)
     return GST_FLOW_ERROR;
 }
 
-void gStreamLib::pushFrame(uint8_t *frame)
+
+/* This callback triggers when appsrc has enough data */
+static void stop_feed(GstElement *source, void *user_data)
 {
-    g_mutex_lock(&mutex);
-    if (frameQ.size() < 4)
+    gStreamLib *p_gst = (gStreamLib *)user_data;
+    if (p_gst->sourceid != 0)
     {
-        frameQ.push(frame);
+        g_print("Stop feeding\n");
+        g_source_remove(p_gst->sourceid);
+        p_gst->sourceid = 0;
     }
-    g_mutex_unlock(&mutex);
 }
 
-uint8_t *gStreamLib::getFrame()
+/*Push data from user to pipline - used in Subsriber */
+static void push_data(void *user_data)
 {
-    uint8_t *ans = NULL;
-    g_mutex_lock(&mutex);
-    if (!frameQ.empty())
-    {
-        ans = (uint8_t *)frameQ.front();
-    }
-    g_mutex_unlock(&mutex);
-
-    return ans;
-}
-
-void gStreamLib::clearFrame()
-{
-    uint8_t *p_frame = NULL;
-    g_mutex_lock(&mutex);
-    if (!frameQ.empty())
-    {
-        p_frame = (uint8_t *)frameQ.front();
-        frameQ.pop();
-        g_print("call to free %p\n",p_frame);
-        if(p_frame)
-            free(p_frame);
-    }
-    g_mutex_unlock(&mutex);
-}
-
-static void push_data(GstElement *_appsrc, guint arg0, gpointer data)
-{
-    GstSample *sample;
-    gStreamLib *p_gst = (gStreamLib *)data;
-    GstCaps *caps;
+    gStreamLib *p_gst = (gStreamLib *)user_data;
     GstFlowReturn ret;
 
-    gpointer p_data = p_gst->getFrame();
-    if(p_data)
+    gpointer data = (gpointer)p_gst->getFrame();
+    if (data)
     {
-        g_print("push data");
-        GstBuffer *buffer = gst_buffer_new_wrapped_full(GST_MEMORY_FLAG_READONLY,p_data, p_gst->calcFrameSize(),0, p_gst->calcFrameSize(),NULL,NULL);
+        GstBuffer *buffer = gst_buffer_new_wrapped_full(GST_MEMORY_FLAG_READONLY, data, p_gst->calcFrameSize(), 0, p_gst->calcFrameSize(), NULL, NULL);
+        gStreamLib *p_gst = (gStreamLib *)user_data;
 
-        // g_object_get(G_OBJECT(_appsrc),"caps",&caps,NULL);
-        // gst_buffer_set_caps(buffer, caps);
-        //GstFlowReturn ret = gst_app_src_push_buffer(_appsrc, buffer);
-        g_signal_emit_by_name (_appsrc, "push-buffer", buffer, &ret);
+        g_signal_emit_by_name(p_gst->appsrc, "push-buffer", buffer, &ret);
 
         if (ret != GST_FLOW_OK)
         {
             g_printerr("Failed to push buffer. Error: %s\n", gst_flow_get_name(ret));
         }
 
-        p_gst->frameQ.pop();
-        //p_gst->calcFrameSize();
+        p_gst->clearFrame();
         gst_buffer_unref(buffer);
-
     }
-
 }
+
+/* a call back function that triger g_idle worker to push data */
+static void push_data_2(GstElement *_appsrc, guint arg0, void *user_data)
+{
+    gStreamLib *p_gst = (gStreamLib *)user_data;
+    p_gst->sourceid = g_idle_add((GSourceFunc)push_data, user_data);
+}
+
 
 void gStreamLib::push_data_wrapper()
 {
-    push_data(this->appsrc,0,this);
+    gpointer p_data = (gpointer)getFrame();
+    if (p_data)
+    {
+        push_data(this);
+    }
 }
 
 gStreamLib::gStreamLib()
 {
-    width = 640;
-    hight = 480;
-    pixelSize = 2;
-    vRes = res_640_480;
+    width = 320;
+    hight = 240;
+    vRes = res_320_240;
 
     g_mutex_init(&mutex);
 }
 
-int gStreamLib::getWidth()
+int gStreamLib::closePipline()
 {
-    return width;
+    g_main_loop_quit(loop);
+    return 0;
 }
 
-int gStreamLib::getHight()
+gStreamLib::~gStreamLib()
 {
-    return hight;
+    g_print("gStreamLib Distractor\n");
 }
-void gStreamLib::setWidth(int w)
-{
-    width = w;
-}
-void gStreamLib::setHight(int h)
-{
-    hight = h;
-}
+
 
 size_t gStreamLib::calcFrameSize()
 {
@@ -145,7 +114,7 @@ size_t gStreamLib::calcFrameSize()
     switch (vRes)
     {
     case res_320_240:
-        ans = 410880;
+        ans = 102720;
         break;
 
     case res_640_480:
@@ -165,33 +134,22 @@ uint64_t gStreamLib::calcPaketRate()
     return ans;
 }
 
-// int gStreamLib::initPipline(std::string camPath, uint16_t camWidth, uint16_t camHight)
-int gStreamLib::initPipline()
+int gStreamLib::PubPipline()
 {
-
     // create a context
     context = g_main_context_new();
     loop = g_main_loop_new(context, FALSE);
 
-    g_print("init gst \n");
     gst_init(NULL, NULL);
-    g_print("done init gst \n");
 
-    pipeline = gst_parse_launch("v4l2src device=/dev/video1 ! video/x-raw, width=640, height=480 ! tee name=t ! queue ! videoconvert ! video/x-raw, format=GRAY10_LE32 ! videoconvert ! autovideosink t. ! videoconvert !  video/x-raw, format=GRAY10_LE32, ! appsink ", nullptr);
+    pipeline = gst_parse_launch("v4l2src device=/dev/video0 ! capsfilter name=caps_camera caps=\"video/x-raw, width=640, height=480\" ! tee name=t ! queue ! videoconvert ! video/x-raw, format=GRAY10_LE32 ! videoconvert ! autovideosink t. ! videoconvert !  video/x-raw, format=GRAY10_LE32, ! appsink ", nullptr);
     if (!pipeline)
     {
         std::cerr << "Failed to create the GStreamer pipeline." << std::endl;
         return 1;
     }
 
-    /*Set the appsink element */
-    camSrc = gst_bin_get_by_name(GST_BIN(pipeline), "v4l2src0");
-    if (!camSrc)
-    {
-        std::cerr << "Failed to retrieve the v4l2src element." << std::endl;
-        return 1;
-    }
-
+    /*get appsink element */
     appsink = gst_bin_get_by_name(GST_BIN(pipeline), "appsink0");
     if (!appsink)
     {
@@ -199,33 +157,37 @@ int gStreamLib::initPipline()
         return 1;
     }
 
+     /*get caps element */
+    GstElement *camera_caps = gst_bin_get_by_name(GST_BIN(pipeline), "caps_camera");
+    if (!camera_caps)
+    {
+        std::cerr << "Failed to retrieve the capsfilter element." << std::endl;
+        return 1;
+    }
+
+    /* set Camera resulotion */
+    g_object_set(camera_caps, "caps", gst_caps_new_simple("video/x-raw", "width", G_TYPE_INT, width, "height", G_TYPE_INT, hight, "framerate", GST_TYPE_FRACTION, 30, 1, nullptr), nullptr);
+
+    /* setting appsink */
     g_signal_connect(appsink, "new-sample", G_CALLBACK(new_sample), this);
     g_object_set(appsink, "emit-signals", TRUE, NULL);
 
+    /* start the pipline */
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
 
+    /* hold on loop */
     g_print("enter loop \n");
     g_main_loop_run(loop);
 
-    /*Clousing the pipe*/
+    /* Clousing the pipe */
     gst_element_set_state(pipeline, GST_STATE_NULL);
     gst_object_unref(pipeline);
 
     return 0;
 }
 
-int gStreamLib::closePipline()
-{
-    g_main_loop_quit(loop);
-    return 0;
-}
 
-gStreamLib::~gStreamLib()
-{
-    g_print("gStreamLib\n");
-}
-
-int gStreamLib::appsrcPipline()
+int gStreamLib::SubPipline()
 {
     context = g_main_context_new();
     loop = g_main_loop_new(context, FALSE);
@@ -234,7 +196,7 @@ int gStreamLib::appsrcPipline()
     gst_init(NULL, NULL);
     g_print("done init gst \n");
 
-    pipeline = gst_parse_launch("appsrc name=mysource ! queue ! video/x-raw, format=GRAY10_LE32 , width=640, height=480, framerate=30/1 ! videoconvert ! autovideosink", nullptr);
+    pipeline = gst_parse_launch("appsrc name=mysource ! queue ! video/x-raw, format=GRAY10_LE32 , width=320, height=240, framerate=30/1 ! videoconvert ! autovideosink", nullptr);
     if (!pipeline)
     {
         std::cerr << "Failed to create the GStreamer pipeline." << std::endl;
@@ -246,8 +208,8 @@ int gStreamLib::appsrcPipline()
     g_object_set(G_OBJECT(appsrc), "caps",
                  gst_caps_new_simple("video/x-raw",
                                      "format", G_TYPE_STRING, "GRAY10_LE32",
-                                     "width", G_TYPE_INT, 640,
-                                     "height", G_TYPE_INT, 480,
+                                     "width", G_TYPE_INT, width,
+                                     "height", G_TYPE_INT, hight,
                                      "framerate", GST_TYPE_FRACTION, 30, 1,
                                      nullptr),
                  nullptr);
@@ -255,7 +217,9 @@ int gStreamLib::appsrcPipline()
     g_object_set(G_OBJECT(appsrc), "is-live", TRUE, nullptr);
 
     // enable appsrc signals
-    g_signal_connect(appsrc, "need-data", G_CALLBACK(push_data), this);
+    g_signal_connect(appsrc, "need-data", G_CALLBACK(push_data_2), this);
+    g_signal_connect(appsrc, "enough-data", G_CALLBACK(stop_feed), this);
+
     g_object_set(appsrc, "emit-signals", TRUE, NULL);
 
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
@@ -268,4 +232,46 @@ int gStreamLib::appsrcPipline()
     gst_object_unref(pipeline);
 
     return 0;
+}
+
+
+void gStreamLib::pushFrame(void *frame)
+{
+    g_mutex_lock(&mutex);
+    if (frameQ.size() < 50 && frame != NULL)
+    {
+        g_print("push %p\n", frame);
+        frameQ.push(frame);
+    }
+    g_mutex_unlock(&mutex);
+}
+
+void *gStreamLib::getFrame()
+{
+    void *ans = NULL;
+    g_mutex_lock(&mutex);
+    if (!frameQ.empty())
+    {
+        ans = (void *)frameQ.front();
+    }
+    g_mutex_unlock(&mutex);
+
+    return ans;
+}
+
+void gStreamLib::clearFrame()
+{
+    void *p_frame = NULL;
+    g_mutex_lock(&mutex);
+    if (!frameQ.empty())
+    {
+        p_frame = (void *)frameQ.front();
+        frameQ.pop();
+        g_print("free %p\n", p_frame);
+        if (p_frame)
+        {
+            free(p_frame);
+        }
+    }
+    g_mutex_unlock(&mutex);
 }

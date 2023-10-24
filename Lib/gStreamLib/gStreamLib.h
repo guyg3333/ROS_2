@@ -8,47 +8,64 @@
 class gStreamLib
 {
 public:
+
     /**
-     * @brief
-     *
+     * @brief Construct a new g Stream Lib object
+     * 
      */
     gStreamLib();
+
+    /**
+     * @brief Destroy the g Stream Lib object
+     * 
+     */
     ~gStreamLib();
 
     /**
-     * @brief Set the Pipline object
-     *
-     * @param camPath
-     * @param camWidth
-     * @param camHight
-     * @param argc
-     * @param argv
-     * @return int
+     * @brief Create Pipline for Publisher node
+     * 
+     * @return 0 on successes  
      */
-    int initPipline();
-    // int initPipline(std::string camPath, uint16_t camWidth, uint16_t camHight);
-    // int startPipline();
+    int PubPipline();
+
+    /**
+     * @brief Create Pipline for Subsriber node
+     * 
+     * @return 0 on successes 
+     */
+    int SubPipline();
+
+    /**
+     * @brief close Pipline
+     * 
+     * @return int 
+     */
     int closePipline();
-    int getWidth();
-    int getHight();
-    void setWidth(int w);
-    void setHight(int h);
+
+    /**
+     * @brief return the frame size in bytes
+     * 
+     * @return size_t 
+     */
     size_t calcFrameSize();
+
+    /**
+     * @brief return the time per packetize frame 
+     * 
+     * @return uint64_t 
+     */
     uint64_t calcPaketRate();
-    uint8_t* getFrame();
-    void clearFrame();
-    void pushFrame(uint8_t* frame);
-    int appsrcPipline();
-    void push_data_wrapper();
-
-
 
     /*Queue API*/
-    std::queue<void*> frameQ;
-    GMutex mutex;
-
-
-
+    void* getFrame();
+    void clearFrame();
+    void pushFrame(void* frame);
+    void push_data_wrapper();
+    
+    std::queue<void*> frameQ; /*<! queue to hold the frmae */
+    GMutex mutex; /*<! mutex to handle the queue */
+    
+    guint sourceid; /*<! sourceid to handle idle worker*/
 
     enum vidoRes
     {
@@ -56,7 +73,8 @@ public:
         res_640_480,
     } typedef videoRes_t;
 
-private:
+    videoRes_t vRes;
+
     GstElement *pipeline;
     GstElement *appsink;
     GstElement *appsrc;
@@ -64,13 +82,10 @@ private:
 
     GMainContext *context;
     GMainLoop *loop;
-    videoRes_t vRes;
 
-    int width;
-    int hight;
-    int pixelSize;
-
-
+private:
+    int width; /*<! frame width */
+    int hight;  /*<! frame hight */
 };
 
 #endif
