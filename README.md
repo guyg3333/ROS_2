@@ -6,9 +6,22 @@ in this Project there are two ros2 node video_sub and video_pub
 ### to run the example
 
 #### Install the Repo 
-1. clone the repo 
-2. enter to repo folder 
-3. run commands :
+1. Install Gstreamer on Ubuntu or Debian : 
+```
+apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-x gstreamer1.0-alsa gstreamer1.0-gl
+```
+2. Install ROS2 : [see full tutorial on setup ROS2](https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debians.html)
+```
+sudo apt install ros-humble-base
+sudo apt install ros-dev-tools
+```
+3. Install BOOST 
+```
+sudo apt install libboost-all-dev
+```
+4. clone the repo 
+5. enter to repo folder 
+6. run commands :
 ```
 rosdep install -i --from-path src --rosdistro humble -y
 colcon build
@@ -31,7 +44,7 @@ ros2 run video_sub video_sub
 
 ### System 
 
-OS : ubunru 22.04
+OS : ubuntu 22.04
 ROS relese : humble
 
 <img title="a title" alt="Alt text" src="./Image.png">
