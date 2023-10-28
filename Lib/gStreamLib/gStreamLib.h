@@ -56,6 +56,9 @@ public:
      */
     uint64_t calcPaketRate();
 
+
+    size_t getEncFrameSize();
+
     /*Queue API*/
     void* getFrame();
     void clearFrame();

@@ -125,6 +125,25 @@ size_t gStreamLib::calcFrameSize()
     return ans;
 }
 
+size_t gStreamLib::getEncFrameSize()
+{
+    size_t ans = 0;
+    switch (vRes)
+    {
+    case res_320_240:
+        ans = 96000;
+        break;
+
+    case res_640_480:
+        ans = 384000;
+        break;
+    }
+
+    return ans;
+
+}
+
+
 uint64_t gStreamLib::calcPaketRate()
 {
     uint64_t ans;
